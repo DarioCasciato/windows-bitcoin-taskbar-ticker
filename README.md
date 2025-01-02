@@ -2,7 +2,7 @@
 
 **Windows Bitcoin Taskbar Ticker** is a lightweight application that displays the current Bitcoin price in USD directly on your Windows taskbar. Stay updated with real-time Bitcoin prices without having to open any webpage.
 
-### Setup
+## Setup
 
 1. **Run the Executable:**
 
