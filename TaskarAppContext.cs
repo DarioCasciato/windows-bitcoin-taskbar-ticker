@@ -31,9 +31,6 @@ namespace windows_bitcoin_taskbar_ticker
             contextMenu.Items.Add(exitMenuItem);
             notifyIcon.ContextMenuStrip = contextMenu;
 
-            // Handle double-click (optional)
-            notifyIcon.DoubleClick += NotifyIcon_DoubleClick;
-
             // Initialize Timer
             timer = new System.Windows.Forms.Timer(); // Fully qualified name
             timer.Interval = 60000; // 1 minute
@@ -63,13 +60,6 @@ namespace windows_bitcoin_taskbar_ticker
                 notifyIcon.ShowBalloonTip(3000, "Error", "Failed to fetch Bitcoin price.", ToolTipIcon.Error);
             }
         }
-
-        private void NotifyIcon_DoubleClick(object sender, EventArgs e)
-        {
-            // Optionally, show a detailed form or perform an action
-            MessageBox.Show("Current Bitcoin price is displayed in the tooltip.", "Bitcoin Taskbar Ticker", MessageBoxButtons.OK, MessageBoxIcon.Information);
-        }
-
         private void Exit(object sender, EventArgs e)
         {
             notifyIcon.Visible = false;
