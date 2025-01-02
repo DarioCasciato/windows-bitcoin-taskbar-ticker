@@ -26,7 +26,7 @@ The application will now launch automatically every time you log into Windows.
 
 ## Demo
 
-<img src="./demo.png" width="200">
+<img src="./Demo.png" width="200">
 
 ## Usage
 
