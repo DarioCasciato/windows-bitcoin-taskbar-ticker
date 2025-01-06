@@ -111,7 +111,6 @@ namespace windows_bitcoin_taskbar_ticker
             this.Text = "Configuration";
             this.ResumeLayout(false);
             this.PerformLayout();
-
         }
 
         #endregion
