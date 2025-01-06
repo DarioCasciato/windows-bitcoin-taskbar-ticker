@@ -6,7 +6,6 @@ using System.Windows.Forms;
 using System.IO;
 using System.Reflection;
 using Newtonsoft.Json.Linq;
-using System.Collections.Generic;
 
 namespace windows_bitcoin_taskbar_ticker
 {
@@ -164,7 +163,10 @@ namespace windows_bitcoin_taskbar_ticker
                         {
                             crypto.Price = price;
                             crypto.IsLoading = false; // Preis erfolgreich geladen
-                            priceTexts.Add($"{crypto.Symbol}: ${price:N2}");
+
+                            // Formatierung: 4 Dezimalstellen, wenn Preis < 1, sonst 2 Dezimalstellen
+                            string formattedPrice = price < 1m ? price.ToString("N4") : price.ToString("N2");
+                            priceTexts.Add($"{crypto.Symbol}: ${formattedPrice}");
                         }
                         else
                         {
@@ -176,6 +178,7 @@ namespace windows_bitcoin_taskbar_ticker
                         priceTexts.Add($"{crypto.Symbol}: N/A");
                     }
                 }
+
 
                 // Aktualisiere den Tooltip mit den aktuellen Preisen
                 notifyIcon.Text = string.Join("\n", priceTexts);
@@ -246,13 +249,16 @@ namespace windows_bitcoin_taskbar_ticker
                     }
                     else if (crypto.Price.HasValue)
                     {
-                        priceTexts.Add($"{crypto.Symbol}: ${crypto.Price:N2}");
+                        decimal price = crypto.Price.Value;
+                        string formattedPrice = price < 1m ? price.ToString("N4") : price.ToString("N2");
+                        priceTexts.Add($"{crypto.Symbol}: ${formattedPrice}");
                     }
                     else
                     {
                         priceTexts.Add($"{crypto.Symbol}: N/A");
                     }
                 }
+
 
                 notifyIcon.Text = string.Join("\n", priceTexts);
             }
