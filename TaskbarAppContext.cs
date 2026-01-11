@@ -118,8 +118,7 @@ namespace windows_bitcoin_taskbar_ticker
         /// <returns></returns>
         private async Task UpdatePricesAsync()
         {
-            if (isUpdating)
-                return; // Verhindert parallele Aktualisierungen
+            if (isUpdating) return;
 
             try
             {
@@ -132,60 +131,63 @@ namespace windows_bitcoin_taskbar_ticker
                     return;
                 }
 
-                // Sammle alle IDs für die API-Anfrage
-                var idsList = new List<string>();
-                foreach (var crypto in cryptocurrencies.Values)
-                {
-                    idsList.Add(crypto.Id);
-                }
-                string ids = string.Join(",", idsList);
-                string url = $"https://api.coingecko.com/api/v3/simple/price?ids={ids}&vs_currencies=usd";
+                // Binance Paare bauen, z.B. BTCUSDT
+                var pairs = cryptocurrencies.Values
+                    .Select(c => (c.Symbol ?? "").Trim().ToUpper() + "USDT")
+                    .Distinct()
+                    .ToList();
 
-                var response = await httpClient.GetAsync(url);
+                // symbols Parameter ist ein JSON Array, muss URL encoded werden
+                string symbolsJson = "[\"" + string.Join("\",\"", pairs) + "\"]";
+                string url = "https://api.binance.com/api/v3/ticker/price?symbols=" + Uri.EscapeDataString(symbolsJson);
 
+                using var req = new HttpRequestMessage(HttpMethod.Get, url);
+                req.Headers.UserAgent.ParseAdd("windows-bitcoin-taskbar-ticker/1.0");
+
+                var response = await httpClient.SendAsync(req);
                 if (!response.IsSuccessStatusCode)
-                {
-                    throw new HttpRequestException($"Response status code does not indicate success: {(int)response.StatusCode} ({response.ReasonPhrase}).");
-                }
+                    throw new HttpRequestException($"HTTP {(int)response.StatusCode} ({response.ReasonPhrase})");
 
                 string responseBody = await response.Content.ReadAsStringAsync();
-                var json = JObject.Parse(responseBody);
+
+                // Antwort ist ein Array: [{ "symbol":"BTCUSDT", "price":"12345.67" }, ...]
+                var arr = JArray.Parse(responseBody);
+
+                var priceByPair = arr
+                    .Where(x => x["symbol"] != null && x["price"] != null)
+                    .ToDictionary(
+                        x => x["symbol"]!.ToString(),
+                        x => x["price"]!.ToString()
+                    );
 
                 List<string> priceTexts = new List<string>();
 
                 foreach (var crypto in cryptocurrencies.Values)
                 {
-                    if (json[crypto.Id] != null && json[crypto.Id]["usd"] != null)
-                    {
-                        decimal price = 0;
-                        bool parseSuccess = decimal.TryParse(json[crypto.Id]["usd"].ToString(), out price);
-                        if (parseSuccess)
-                        {
-                            crypto.Price = price;
-                            crypto.IsLoading = false; // Preis erfolgreich geladen
+                    string pair = crypto.Symbol.ToUpper() + "USDT";
 
-                            // Formatierung: 4 Dezimalstellen, wenn Preis < 1, sonst 2 Dezimalstellen
-                            string formattedPrice = price < 1m ? price.ToString("N4") : price.ToString("N2");
-                            priceTexts.Add($"{crypto.Symbol}: ${formattedPrice}");
-                        }
-                        else
-                        {
-                            priceTexts.Add($"{crypto.Symbol}: N/A");
-                        }
+                    if (priceByPair.TryGetValue(pair, out var priceStr) &&
+                        decimal.TryParse(priceStr, System.Globalization.NumberStyles.Any,
+                            System.Globalization.CultureInfo.InvariantCulture, out var price))
+                    {
+                        crypto.Price = price;
+                        crypto.IsLoading = false;
+
+                        string formattedPrice = price < 1m ? price.ToString("N4") : price.ToString("N2");
+                        priceTexts.Add($"{crypto.Symbol}: ${formattedPrice}");
                     }
                     else
                     {
+                        crypto.Price = null;
+                        crypto.IsLoading = false;
                         priceTexts.Add($"{crypto.Symbol}: N/A");
                     }
                 }
 
-
-                // Aktualisiere den Tooltip mit den aktuellen Preisen
                 notifyIcon.Text = string.Join("\n", priceTexts);
             }
             catch (Exception ex)
             {
-                // Setze den Tooltip auf "Prices: N/A" und zeige eine Balloon-Tipp-Benachrichtigung
                 notifyIcon.Text = "Prices: N/A";
                 notifyIcon.ShowBalloonTip(3000, "Error", "Failed to fetch cryptocurrency prices.", ToolTipIcon.Error);
                 LogError($"Error fetching cryptocurrency prices: {ex.Message}");
@@ -195,6 +197,7 @@ namespace windows_bitcoin_taskbar_ticker
                 isUpdating = false;
             }
         }
+
 
         /// <summary>
         /// Öffnet das Konfigurationsformular.
@@ -281,13 +284,21 @@ namespace windows_bitcoin_taskbar_ticker
         {
             try
             {
-                string logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "error.log");
-                string logMessage = $"{DateTime.Now}: {message}\n";
+                string dir = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "windows-bitcoin-taskbar-ticker"
+                );
+
+                Directory.CreateDirectory(dir);
+
+                string logPath = Path.Combine(dir, "error.log");
+                string logMessage = $"{DateTime.Now}: {message}{Environment.NewLine}";
+
                 File.AppendAllText(logPath, logMessage);
             }
             catch
             {
-                // Falls das Logging fehlschlägt, ignoriere es stillschweigend, um rekursive Fehler zu vermeiden
+                // bewusst nichts
             }
         }
     }
